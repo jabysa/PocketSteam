@@ -1,0 +1,55 @@
+[project]
+name = "cs2kit"
+version = "0.1.0"
+description = "Configure, diagnose and measure Counter-Strike 2 on Apple Silicon (Wine + DXMT + MSync)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "cs2-apple-silicon contributors" }]
+keywords = ["cs2", "wine", "dxmt", "apple-silicon", "macos"]
+dependencies = []          # stdlib only, on purpose: see docs/cs2kit-spec.md
+
+[project.scripts]
+cs2kit = "cs2kit.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/piwas-21/cs2-apple-silicon"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "pytest-cov>=6.0"]
+quality = ["ruff>=0.14", "bandit>=1.8", "pip-audit>=2.9", "packaging>=25"]
+
+[tool.uv.dependency-groups]
+quality = { requires-python = ">=3.13" }
+
+[tool.ruff]
+target-version = "py39"
+extend-exclude = ["graphify-out", ".local"]
+
+[tool.ruff.lint]
+select = ["E9", "F"]
+
+[tool.coverage.run]
+source = ["cs2kit"]
+branch = true
+relative_files = true
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "graphify-out", ".local"]
+# Subprocesses use argument arrays and selected Wine executables. The risk is
+# authority/path validation, covered by behavioral tests, not importing these APIs.
+skips = ["B404", "B603", "B607"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["cs2kit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

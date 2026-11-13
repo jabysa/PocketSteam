@@ -1,0 +1,46 @@
+{
+  "env_id": "2b7f2076010faa94",
+  "stable": {
+    "arch": "arm64",
+    "chip": "Apple M2 Pro",
+    "cs2_buildid": "24828357",
+    "dxmt_version": "v0.80",
+    "e_cores": "4",
+    "gpu_cores": "16",
+    "macos": "26.5.2",
+    "macos_build": "25F84",
+    "macos_major": 26,
+    "metal": "Metal 4",
+    "p_cores": "6",
+    "ram_gb": 32,
+    "recipe_hash": "12fc974c468753e8",
+    "recipe_name": "cs2-default",
+    "resolution": "3024 x 1964 Retina",
+    "wine_version": "wine-10.0 (Sikarugir)"
+  },
+  "volatile": {
+    "_note": "user paths redacted for publication; regenerate locally with `cs2kit env --save`",
+    "awdl_up": true,
+    "captured_at": "2026-08-24T19:07:03Z",
+    "cs2_exe": "/Users/<redacted>/Library/Application Support/Steam/steamapps/common/Counter-Strike Global Offensive/game/bin/win64/cs2.exe",
+    "dxmt_build": "builtin",
+    "dxmt_installed": true,
+    "free_gib": 41,
+    "installed_depots": [
+      "2347770",
+      "2347771",
+      "2347774",
+      "731",
+      "732",
+      "735"
+    ],
+    "low_power_mode": false,
+    "prefix": "/Users/<redacted>/CS2/prefix-sk",
+    "prefix_exists": true,
+    "rosetta": true,
+    "steam_root": "/Users/<redacted>/Library/Application Support/Steam",
+    "wine_exports_macdrv": true,
+    "wine_path": "/Users/<redacted>/CS2/wine-sk/wswine.bundle/bin/wine",
+    "wine_root": "/Users/<redacted>/CS2/wine-sk/wswine.bundle"
+  }
+}

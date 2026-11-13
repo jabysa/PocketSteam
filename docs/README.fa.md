@@ -2,6 +2,44 @@
 
 **زبان:** [English](../README.md) · فارسی · [العربية](README.ar.md)
 
+یک منو برای Steam ویندوز، CS2Kit مک و نصب Steam لینوکس.
+
+## انتخاب سیستم‌عامل
+
+روی ویندوز `python pocketsteam.py` و روی مک یا لینوکس `python3 pocketsteam.py` را اجرا کن.
+در منو سیستم‌عامل همین دستگاه را انتخاب کن؛ این منو شبیه‌ساز سیستم‌عامل نیست.
+
+- **ویندوز:** روی `Start Steam.cmd` دوبار کلیک کن و گزینه **۱** را بزن. روش قبلی بدون اجرای نصاب استفاده می‌شود.
+- **مک:** فایل `Start PocketSteam.command` را باز کن و گزینه **۲** را بزن. اگر ZIP مجوز اجرا را نگه نداشت، در ترمینال `sh "Start PocketSteam.command"` را اجرا کن. فقط Apple Silicon پشتیبانی می‌شود. با `y` نصب یا تعمیر و با `n` اجرای نصب موجود را انتخاب کن. حدود ۹۰ گیگابایت فضا لازم است؛ بعد داخل Steam ویندوزی وارد شو و CS2 را نصب کن.
+- **لینوکس:** با `sh start.sh` اجرا کن و گزینه **۳** را بزن. اگر Steam نصب باشد اجرا می‌شود؛ در غیر این صورت روی Ubuntu/Debian با معماری x86_64، پس از تأیید خودت بسته رسمی Valve با `sudo apt install` نصب می‌شود. رمز را در ترمینال وارد می‌کنی و لانچر ذخیره نمی‌کند. روی توزیع‌های دیگر ابتدا Steam را از مدیر بسته خود توزیع نصب کن.
+
+روش لینوکس **نصب سیستمی** است، نه پرتابل. درایور گرافیک، کتابخانه‌های ۳۲ بیتی و نسخه توزیع باید سازگار باشند؛ [نیازمندی‌های Valve](https://github.com/ValveSoftware/steam-for-linux/blob/master/README.md) را ببین.
+روش مک نسخه داخلی سورس CS2Kit را اجرا می‌کند، نه Steam بومی مک. در مسیرهای `~/CS2` و `~/.cs2kit` و `~/Applications/CS2Kit.app` می‌نویسد و ممکن است بازی قبلی CS2 را به کتابخانه خودش منتقل کند. **آنلاین رقابتی و VAC هنوز تأیید نشده‌اند.**
+
+انتخاب مستقیم با `--os windows` یا `--os macos` یا `--os linux` هم ممکن است.
+
+## نصب Python
+
+- **ویندوز:** از [سایت رسمی](https://www.python.org/downloads/windows/) دانلود کن؛ نصب‌کننده یا Install Manager را اجرا کن. اگر نصاب کلاسیک گزینه **Add Python to PATH** داشت فعال کن. ترمینال را دوباره باز کن و `py -3 --version` یا `python --version` را بزن.
+- **مک:** از [سایت رسمی](https://www.python.org/downloads/macos/) فایل `.pkg` را بگیر و نصب کن. در ترمینال `python3 --version` را بررسی کن. نسخه python.org قابلیت `lzma` موردنیاز CS2Kit را دارد. Rosetta 2 نیز برای CS2Kit لازم است.
+- **Ubuntu/Debian:** ابتدا `sudo apt update` و سپس `sudo apt install python3` را اجرا کن. با `python3 --version` بررسی کن. در توزیع‌های دیگر از مدیر بسته همان توزیع استفاده کن.
+
+Python 3.9 یا جدیدتر لازم است؛ منوی PocketSteam به نصب pip نیاز ندارد.
+
+## لینک‌های دانلود رسمی
+
+- [دانلود ZIP پروژه](https://github.com/jabysa/PocketSteam/archive/refs/heads/main.zip)
+- [دانلود Steam برای ویندوز، مک و لینوکس](https://store.steampowered.com/about/)
+- [نصاب Steam ویندوز](https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe)؛ روش ویندوز این پروژه آن را اجرا نمی‌کند
+- [بسته Steam لینوکس](https://repo.steampowered.com/steam/steam_latest.deb)
+- [پروژه اصلی CS2Kit](https://github.com/piwas-21/cs2-apple-silicon) و [مشخصات نسخه داخلی](../vendor/UPSTREAM.md)
+
+## سورس و لایسنس
+
+سورس اصلی CS2Kit بدون تغییر و همراه لایسنس GPL-3.0 در `vendor/cs2kit/` قرار دارد؛ این یک فورک مستقل روی GitHub نیست. فایل اجرایی Steam، Wine یا DXMT همراه پروژه نیست. پروژه با [GPL-3.0](../LICENSE) توزیع می‌شود و حقوق سازندگان اصلی حفظ شده است.
+
+## جزئیات روش ویندوز
+
 اجرای Steam روی ویندوز از داخل یک پوشه، بدون اجرای نصاب Steam.
 فقط از کتابخانه استاندارد پایتون استفاده می‌کند؛ نیازی به pip، Wine یا CrossOver ندارد.
 
@@ -53,6 +91,8 @@ python steam_portable.py
 - گزارش‌ها در `Steam/logs` هستند؛ قبل از اشتراک‌گذاری، اطلاعات حساب را بررسی کن.
 
 ## تست و بررسی
+
+مسیرهای منو و تأیید نصب با تست‌های شبیه‌سازی‌شده بررسی شده‌اند؛ اجرای کامل ویندوز و لینوکس تست نشده است. نسخه داخلی CS2Kit قبلاً جداگانه روی M2 Pro نصب شد، اما نصب کامل از منوی جدید دوباره اجرا نشده است.
 
 ```powershell
 python -m unittest -v

@@ -1,0 +1,16 @@
+research/_scratch/
+*.log
+.DS_Store
+bottles/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+cs2kit.egg-info/
+/graphify-out/
+/.local/
+/.coverage*
+/coverage.xml
+/test-results.xml
+/dist/
+/performance.json

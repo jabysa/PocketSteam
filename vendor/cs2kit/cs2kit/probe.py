@@ -1,0 +1,309 @@
+"""T-005 - freeze the environment of record.
+
+Every benchmark number CS2Kit stores is keyed by the snapshot produced here, so
+the snapshot is split in two: a `stable` block (identity - the thing a benchmark
+is comparable within) and a `volatile` block (free disk, power state, time).
+`env_id` hashes only the stable block, which is what makes the T-005 acceptance
+test - "the snapshot regenerates identically twice" - meaningful.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import platform
+import re
+import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from cs2kit.util import read_json, run, steam_root, sysctl, which, wineprefix
+
+APPID = "730"
+DEPOT_WIN64 = "2347771"   # the .exe/.dll depot macOS Steam omits (T-001)
+DEPOT_CONTENT = "2347770"  # 58 GB of maps/models/sounds, no OS filter
+
+
+# --- Steam ACF/VDF (the tiny subset an appmanifest uses) ---------------------
+def parse_acf(text: str) -> Dict[str, Any]:
+    """Parse Valve's KeyValues text format into nested dicts."""
+    tokens = re.findall(r'"((?:[^"\\]|\\.)*)"|([{}])', text)
+    stack: List[Dict[str, Any]] = [{}]
+    key: Optional[str] = None
+    for quoted, brace in tokens:
+        if brace == "{":
+            node: Dict[str, Any] = {}
+            stack[-1][key or ""] = node
+            stack.append(node)
+            key = None
+        elif brace == "}":
+            if len(stack) > 1:
+                stack.pop()
+        elif key is None:
+            key = quoted
+        else:
+            stack[-1][key] = quoted
+            key = None
+    root = stack[0]
+    # unwrap the single top-level node ("AppState")
+    if len(root) == 1:
+        only = next(iter(root.values()))
+        if isinstance(only, dict):
+            return only
+    return root
+
+
+def libraries() -> List[Path]:
+    """Every Steam library that might hold CS2, best first.
+
+    The game no longer lives in the macOS Steam library: sharing that library is
+    what let macOS Steam delete the Windows binaries on 2026-08-25. Anything that
+    looks for CS2 therefore has to look in more than one place."""
+    out: List[Path] = [Path(os.environ.get("CS2KIT_LIBRARY",
+                                           Path.home() / "CS2" / "library")) / "steamapps"]
+    link = wineprefix() / "drive_c" / "Program Files (x86)" / "Steam" / "steamapps"
+    try:
+        if link.exists():
+            out.append(link.resolve())
+    except OSError:
+        pass
+    out.append(steam_root() / "steamapps")
+    seen, unique = set(), []
+    for path in out:
+        if str(path) not in seen:
+            seen.add(str(path))
+            unique.append(path)
+    return unique
+
+
+def appmanifest_path(steam: Optional[Path] = None) -> Path:
+    """The manifest describing the install we actually use."""
+    if steam is not None:
+        return steam / "steamapps" / f"appmanifest_{APPID}.acf"
+    for steamapps in libraries():
+        candidate = steamapps / f"appmanifest_{APPID}.acf"
+        if candidate.is_file():
+            return candidate
+    return steam_root() / "steamapps" / f"appmanifest_{APPID}.acf"
+
+
+def read_appmanifest(steam: Optional[Path] = None) -> Dict[str, Any]:
+    path = appmanifest_path(steam)
+    try:
+        return parse_acf(path.read_text(errors="replace"))
+    except OSError:
+        return {}
+
+
+def cs2_install_dir(steam: Optional[Path] = None) -> Optional[Path]:
+    """Where CS2 is on disk, searching every library we know about."""
+    manifest = read_appmanifest(steam)
+    name = manifest.get("installdir") or "Counter-Strike Global Offensive"
+    candidates = [steam / "steamapps"] if steam else libraries()
+    fallback = None
+    for steamapps in candidates:
+        path = steamapps / "common" / name
+        if not path.is_dir():
+            continue
+        if (path / "game" / "bin" / "win64" / "cs2.exe").is_file():
+            return path                      # a usable Windows install wins outright
+        fallback = fallback or path
+    return fallback
+
+
+def cs2_exe(steam: Optional[Path] = None) -> Optional[Path]:
+    root = cs2_install_dir(steam)
+    if not root:
+        return None
+    exe = root / "game" / "bin" / "win64" / "cs2.exe"
+    return exe if exe.is_file() else None
+
+
+# --- host probes -------------------------------------------------------------
+def _sp_displays() -> str:
+    return run(["system_profiler", "SPDisplaysDataType"], timeout=30).out
+
+
+def _first(pattern: str, text: str) -> str:
+    m = re.search(pattern, text, re.M)
+    return m.group(1).strip() if m else ""
+
+
+def free_gib(path: str = "/System/Volumes/Data") -> int:
+    p = run(["df", "-k", path], timeout=10)
+    for line in p.out.splitlines()[1:]:
+        parts = line.split()
+        if len(parts) >= 4:
+            try:
+                return int(parts[3]) // 1024 // 1024
+            except ValueError:
+                continue
+    return 0
+
+
+def rosetta_active() -> bool:
+    return run(["pgrep", "-q", "oahd"], timeout=5).ok
+
+
+def low_power_mode() -> Optional[bool]:
+    p = run(["pmset", "-g"], timeout=10)
+    if not p.ok:
+        return None
+    m = re.search(r"lowpowermode\s+(\d)", p.out)
+    return bool(int(m.group(1))) if m else False
+
+
+def awdl_up() -> Optional[bool]:
+    p = run(["ifconfig", "awdl0"], timeout=10)
+    if p.code == 127:
+        return None
+    return "status: active" in p.out or "<UP," in p.out
+
+
+def wine_info() -> Dict[str, Any]:
+    path = which("wine")
+    if not path:
+        # `which wine` alone is not enough: the launcher app and any bare shell run
+        # without the engine on PATH, while the bottle state records where Wine
+        # lives. Consulting only PATH made doctor grade a healthy, working install
+        # as "Wine not installed" (measured 2026-09-16); play itself already
+        # resolves the engine through bottle.wine_root().
+        root = wine_root()
+        path = str(Path(root) / "bin" / "wine") if root else None
+    if not path:
+        return {"path": None, "version": None, "major": None}
+    out = run([path, "--version"], timeout=60).out
+    version = out.splitlines()[0] if out else ""
+    m = re.search(r"wine-(\d+)", version)
+    return {"path": path, "version": version or None, "major": int(m.group(1)) if m else None}
+
+
+def wine_root(explicit: Optional[str] = None) -> Optional[Path]:
+    """Import-light wrapper so the snapshot does not depend on the bottle module."""
+    from cs2kit.bottle import wine_root as _wine_root
+
+    return _wine_root(explicit)
+
+
+def wine_exports_macdrv(wine: Optional[Path] = None) -> Optional[bool]:
+    """Does this Wine export the `winemac.drv` API that DXMT needs?
+
+    THE check that cost this project a day on 2026-08-24. DXMT resolves those
+    entry points at runtime, so a build without them installs perfectly, creates
+    a D3D11 device at feature level 11_1, and then dies with
+    `Failed to create metal view, it seems like your Wine has no exported symbols
+    needed by DXMT` - at which point the game window is simply never drawn.
+
+    Gcenx's Wine 11.15 (staging and devel) exports none of it. A FOSS CrossOver
+    24+ build exports `_macdrv_functions`. Returns None when it cannot be
+    determined (no wine, no `nm`)."""
+    wine = wine or wine_root()
+    if not wine:
+        return None
+    driver = Path(wine) / "lib" / "wine" / "x86_64-unix" / "winemac.so"
+    if not driver.is_file():
+        return None
+    proc = run(["nm", "-g", str(driver)], timeout=60)
+    if not proc.ok:
+        return None
+    return "macdrv" in proc.out
+
+
+def dxmt_installed(prefix: Path, build: str = "builtin",
+                   wine: Optional[Path] = None) -> bool:
+    """Is DXMT actually where this build of it has to be?
+
+    The published `builtin` build lives in the WINE TREE - checking the prefix's
+    system32 for d3d11.dll (which is what CS2Kit did before 2026-08-24) reports
+    a correct installation as missing, and an incorrect one as fine."""
+    prefix = Path(prefix)
+    system32 = prefix / "drive_c" / "windows" / "system32"
+    if build == "prefix":
+        return (system32 / "d3d11.dll").is_file() and (system32 / "dxgi.dll").is_file()
+    wine = wine or wine_root()
+    if not wine:
+        return False
+    lib = Path(wine) / "lib" / "wine"
+    return ((lib / "x86_64-unix" / "winemetal.so").is_file()
+            and (lib / "x86_64-windows" / "d3d11.dll").is_file())
+
+
+def bottle_state(prefix: Optional[Path] = None) -> Dict[str, Any]:
+    """CS2Kit's own record of what it installed into a prefix (written by
+    `bottle create`), plus what is physically there right now."""
+    prefix = Path(prefix or wineprefix())
+    state = read_json(prefix / ".cs2kit" / "state.json", {}) or {}
+    build = state.get("dxmt_build") or "builtin"
+    wine = Path(state["wine_root"]) if state.get("wine_root") else wine_root()
+    return {
+        "prefix": str(prefix),
+        "exists": (prefix / "system.reg").is_file(),
+        "dxmt_version": state.get("dxmt_version"),
+        "dxmt_build": build,
+        "dxmt_installed": dxmt_installed(prefix, build, wine),
+        "wine_root": str(wine) if wine else None,
+        "recipe_name": state.get("recipe_name"),
+        "recipe_hash": state.get("recipe_hash"),
+        "created": state.get("created"),
+    }
+
+
+def cs2_buildid(steam: Optional[Path] = None) -> Optional[str]:
+    manifest = read_appmanifest(steam)
+    return manifest.get("buildid") or None
+
+
+def installed_depots(steam: Optional[Path] = None) -> List[str]:
+    manifest = read_appmanifest(steam)
+    depots = manifest.get("InstalledDepots")
+    return sorted(depots.keys()) if isinstance(depots, dict) else []
+
+
+# --- snapshot ----------------------------------------------------------------
+def snapshot(steam: Optional[Path] = None, prefix: Optional[Path] = None) -> Dict[str, Any]:
+    displays = _sp_displays()
+    os_version = run(["sw_vers", "-productVersion"], timeout=10).out
+    wine = wine_info()
+    bottle = bottle_state(prefix)
+    stable = {
+        "macos": os_version,
+        "macos_build": run(["sw_vers", "-buildVersion"], timeout=10).out,
+        "macos_major": int(os_version.split(".")[0]) if os_version.split(".")[0].isdigit() else 0,
+        "chip": sysctl("machdep.cpu.brand_string"),
+        "arch": platform.machine(),
+        "p_cores": sysctl("hw.perflevel0.logicalcpu"),
+        "e_cores": sysctl("hw.perflevel1.logicalcpu"),
+        "gpu_cores": _first(r"Total Number of Cores: (.+)$", displays),
+        "metal": _first(r"Metal Support: (.+)$", displays),
+        "ram_gb": int(sysctl("hw.memsize") or 0) // (1024 ** 3),
+        "resolution": _first(r"Resolution: (.+)$", displays),
+        "wine_version": wine["version"],
+        "dxmt_version": bottle["dxmt_version"],
+        "cs2_buildid": cs2_buildid(steam),
+        "recipe_name": bottle["recipe_name"],
+        "recipe_hash": bottle["recipe_hash"],
+    }
+    volatile = {
+        "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "free_gib": free_gib(),
+        "rosetta": rosetta_active(),
+        "low_power_mode": low_power_mode(),
+        "awdl_up": awdl_up(),
+        "wine_path": wine["path"],
+        "prefix": bottle["prefix"],
+        "prefix_exists": bottle["exists"],
+        "dxmt_installed": bottle["dxmt_installed"],
+        "dxmt_build": bottle["dxmt_build"],
+        "wine_root": bottle["wine_root"],
+        "wine_exports_macdrv": wine_exports_macdrv(
+            Path(bottle["wine_root"]) if bottle["wine_root"] else None),
+        "cs2_exe": str(cs2_exe(steam) or ""),
+        "installed_depots": installed_depots(steam),
+        "steam_root": str(steam or steam_root()),
+    }
+    return {"stable": stable, "volatile": volatile, "env_id": env_id(stable)}
+
+
+def env_id(stable: Dict[str, Any]) -> str:
+    blob = json.dumps(stable, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(blob).hexdigest()[:16]

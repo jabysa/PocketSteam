@@ -2,8 +2,14 @@
 cd /d "%~dp0"
 where py >nul 2>nul
 if errorlevel 1 (
-    python steam_portable.py
+    where python >nul 2>nul
+    if errorlevel 1 (
+        echo Python 3.9+ is required. Download: https://www.python.org/downloads/windows/
+        pause
+        exit /b 1
+    )
+    python pocketsteam.py
 ) else (
-    py -3 steam_portable.py
+    py -3 pocketsteam.py
 )
 if errorlevel 1 pause
