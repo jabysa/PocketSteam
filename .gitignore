@@ -1,2 +1,22 @@
-Steam/
+# Downloaded client, games and account data
+/Steam/
+
+# Python
 __pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+*.tmp
+*.part
+.env
+.env.*
+!.env.example
