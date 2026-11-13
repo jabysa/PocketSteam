@@ -11,6 +11,7 @@ import urllib.request
 import zipfile
 
 BASE = "https://client-update.steamstatic.com/"
+VALVE_PUBLISHER_PATTERN = r"(?i)(^|,\s*)O=Valve Corp(oration|\.)?(,|$)"
 
 
 def fetch(name, limit):
@@ -68,8 +69,9 @@ def verify_signature(exe):
         "$ErrorActionPreference='Stop'; "
         "$s=Get-AuthenticodeSignature -LiteralPath $env:STEAM_PORTABLE_EXE; "
         "if ($s.Status -ne 'Valid' -or "
-        "$s.SignerCertificate.Subject -notmatch '(?i)O=Valve Corp(oration)?(,|$)') "
-        "{ throw 'Steam signature is not a valid Valve signature' }"
+        f"$s.SignerCertificate.Subject -notmatch '{VALVE_PUBLISHER_PATTERN}') "
+        "{ throw ('Steam signature rejected. Status: {0}; Signer: {1}; Detail: {2}' "
+        "-f $s.Status, $s.SignerCertificate.Subject, $s.StatusMessage) }"
     )
     env = dict(os.environ, STEAM_PORTABLE_EXE=str(exe))
     subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],

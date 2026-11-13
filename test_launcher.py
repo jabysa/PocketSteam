@@ -1,5 +1,28 @@
 import unittest
-from steam_portable import package_info
+import re
+from steam_portable import VALVE_PUBLISHER_PATTERN, package_info
+
+
+class SignaturePublisherTests(unittest.TestCase):
+    def test_accepts_valve_certificate_subjects(self):
+        for subject in (
+            "CN=Valve Corp., O=Valve Corp., L=Bellevue, S=Washington, C=US",
+            "O=Valve Corporation, C=US",
+            "CN=Steam, O=Valve Corp",
+        ):
+            with self.subTest(subject=subject):
+                self.assertIsNotNone(re.search(VALVE_PUBLISHER_PATTERN, subject))
+
+    def test_rejects_other_publishers_and_embedded_names(self):
+        for subject in (
+            "CN=Other, O=Other Company, C=US",
+            "O=Valve Corporation Fake, C=US",
+            "CN=O=Valve Corp., O=Other Company, C=US",
+            "O=Valve CorpX, C=US",
+            "",
+        ):
+            with self.subTest(subject=subject):
+                self.assertIsNone(re.search(VALVE_PUBLISHER_PATTERN, subject))
 
 
 class ManifestTests(unittest.TestCase):
