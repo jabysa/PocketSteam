@@ -43,6 +43,14 @@ Python 3.9+ is required. No `pip install` step is needed for the PocketSteam men
 
 Creating user files is expected. PocketSteam does not run elevated installers. The Mac route retains CS2Kit user-folder setup and requires Rosetta/Python already present. We cannot guarantee that Steam or a game will never display its own service/prerequisite permission request: **cancel it** on a restricted computer; the affected game may not work. No privilege bypass is included.
 
+## Windows user-folder setup
+
+Close Steam completely before running the updated launcher. When the project is on a network drive or its Steam folder cannot be written, PocketSteam uses `%LOCALAPPDATA%\PocketSteam\Steam`. Existing client files and games are copied there automatically if sufficient space is available. The original stays in place. Later runs reuse the local copy. The launcher prints its location.
+
+PocketSteam registers `SteamPath` and `SteamExe` under the current user's `HKCU\Software\Valve\Steam` key before starting Steam. This addresses the launcher's user-path configuration. Windows testing is still needed to confirm whether Steam's registry warning clears on the affected PC.
+
+Steam Client Service installation and game prerequisites can still require administrator credentials. These changes cannot guarantee administrator-free CS2/VAC play on a managed PC.
+
 ## Windows folder launcher details
 
 The following details describe the Windows folder-based path.

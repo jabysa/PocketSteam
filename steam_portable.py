@@ -1,12 +1,16 @@
 """Folder-based Steam bootstrapper. Python 3.9+, no third-party packages."""
 import argparse
+import csv
+import ctypes
 import hashlib
 import io
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.request
 import zipfile
 
@@ -78,6 +82,60 @@ def verify_signature(exe):
                    check=True, env=env, timeout=60)
 
 
+def require_steam_closed():
+    result = subprocess.run(
+        ["tasklist.exe", "/FI", "IMAGENAME eq steam.exe", "/FO", "CSV", "/NH"],
+        check=True, capture_output=True, text=True, timeout=30)
+    if any(row and row[0].lower() == "steam.exe"
+           for row in csv.reader(result.stdout.splitlines())):
+        raise ValueError("Close Steam using Steam > Exit, then run PocketSteam again.")
+
+
+def windows_folder(project_folder):
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if not local_appdata:
+        raise ValueError("Windows did not provide LOCALAPPDATA for this account.")
+    local = Path(local_appdata) / "PocketSteam" / "Steam"
+    drive_type = ctypes.windll.kernel32.GetDriveTypeW
+    if drive_type(ctypes.c_wchar_p(local.anchor)) == 4:
+        raise ValueError("LOCALAPPDATA points to a network drive; a local user folder is required.")
+    remote = drive_type(ctypes.c_wchar_p(project_folder.anchor)) == 4
+    if local.exists():
+        return local
+    if not remote:
+        try:
+            project_folder.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryFile(dir=project_folder):
+                pass
+            return project_folder
+        except PermissionError:
+            pass
+    local.parent.mkdir(parents=True, exist_ok=True)
+    if project_folder.exists():
+        size = sum(item.stat().st_size for item in project_folder.rglob("*")
+                   if item.is_file())
+        if shutil.disk_usage(local.parent).free < size + 512 * 1024 * 1024:
+            raise ValueError("Not enough local disk space to copy Steam and its games.")
+        print("Copying existing Steam and games to a local user folder...", flush=True)
+        # Publish only a complete copy. Leave the original available after a failure.
+        with tempfile.TemporaryDirectory(prefix="steam-copy-", dir=local.parent) as staging:
+            copied = Path(staging) / "Steam"
+            shutil.copytree(project_folder, copied, symlinks=True)
+            copied.rename(local)
+    print("Local Steam folder:", local)
+    return local
+
+
+def register_user_steam(exe):
+    import winreg
+
+    with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam",
+                            0, winreg.KEY_SET_VALUE) as key:
+        winreg.SetValueEx(key, "SteamPath", 0, winreg.REG_SZ,
+                         str(exe.parent).replace("\\", "/"))
+        winreg.SetValueEx(key, "SteamExe", 0, winreg.REG_SZ, str(exe))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prepare-only", action="store_true",
@@ -86,11 +144,15 @@ def main():
     if sys.platform != "win32" and not args.prepare_only:
         parser.error("Run this launcher on Windows, or use --prepare-only to download")
     folder = Path(__file__).resolve().parent / "Steam"
+    if not args.prepare_only:
+        require_steam_closed()
+        folder = windows_folder(folder)
     exe = bootstrap(folder)
     if args.prepare_only:
         print("Prepared only. Windows Authenticode verification occurs before launch.")
         return
     verify_signature(exe)
+    register_user_steam(exe)
     subprocess.Popen([str(exe)], cwd=str(folder))
     print("Steam started. First launch downloads the rest of the client.")
 

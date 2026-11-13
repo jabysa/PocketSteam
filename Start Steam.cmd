@@ -1,5 +1,6 @@
 @echo off
-cd /d "%~dp0"
+pushd "%~dp0"
+if errorlevel 1 exit /b 1
 where py >nul 2>nul
 if errorlevel 1 (
     where python >nul 2>nul
@@ -13,3 +14,4 @@ if errorlevel 1 (
     py -3 pocketsteam.py
 )
 if errorlevel 1 pause
+popd
