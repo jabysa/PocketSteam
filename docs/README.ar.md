@@ -11,9 +11,9 @@
 
 - **Windows:** انقر مرتين على `Start Steam.cmd` واختر **1**. يستخدم المشغّل السابق دون تشغيل مثبت Steam.
 - **macOS:** افتح `Start PocketSteam.command` واختر **2**. إذا فقد الملف صلاحية التنفيذ، شغّل `sh "Start PocketSteam.command"` من الطرفية. يدعم Apple Silicon فقط. اختر `y` للإعداد أو الإصلاح، و`n` لتشغيل إعداد موجود. تحتاج نحو 90 جيجابايت؛ بعد الإعداد سجّل الدخول إلى Windows Steam وثبّت CS2.
-- **Linux:** شغّل `sh start.sh` واختر **3**. يشغّل Steam المثبّت إن وجد، وإلا يمكن تثبيت حزمة Valve الرسمية على Ubuntu/Debian x86_64 بعد موافقتك باستخدام `sudo apt install`. أدخل كلمة المرور في الطرفية؛ لا يحفظها المشغّل. للتوزيعات الأخرى ثبّت Steam عبر مدير الحزم الخاص بها أولًا.
+- **Linux:** شغّل `sh start.sh` واختر **3**. على x86_64 ينزّل المشغّل حزمة Valve، ويتحقق من SHA-256 المثبت، ويستخرج ملفات التشغيل إلى `LinuxSteam/`. لا يشغّل مثبت deb أو سكربتات الحزمة أو apt أو sudo أو مثبت تبعيات التوزيعة.
 
-مسار Linux **تثبيت على النظام** وليس مجلدًا محمولًا. يلزم توافق إصدار التوزيعة وتعريفات الرسوم ومكتبات 32 بت؛ راجع [متطلبات Valve](https://github.com/ValveSoftware/steam-for-linux/blob/master/README.md).
+يجب توفر محمّل 32 بت والمكتبات وتعريفات الرسوم وأدوات Bash وtar وxz مسبقًا. يتحقق المشغّل من المحمّل والأدوات، ويتحقق Steam من المتطلبات الإضافية؛ لا يثبّت المشغّل المتطلبات الناقصة. إذا تغيرت الحزمة لدى Valve، يتوقف التحقق حتى تحديث PocketSteam.
 مسار Mac يستخدم نسخة مصدر CS2Kit المضمّنة، وليس Steam الأصلي لنظام Mac. يكتب إلى `~/CS2` و`~/.cs2kit` و`~/Applications/CS2Kit.app`، وقد ينقل تثبيت CS2 موجودًا إلى مكتبته المنفصلة. **لم يُتحقق من اللعب التنافسي وVAC بعد.**
 
 للاختيار المباشر أضف `--os windows` أو `--os macos` أو `--os linux`.
@@ -22,7 +22,7 @@
 
 - **Windows:** نزّله من [الموقع الرسمي](https://www.python.org/downloads/windows/) وشغّل المثبّت أو Install Manager. فعّل **Add Python to PATH** إن ظهر. افتح الطرفية مجددًا وتحقق باستخدام `py -3 --version` أو `python --version`.
 - **macOS:** نزّل حزمة `.pkg` من [الموقع الرسمي](https://www.python.org/downloads/macos/) وثبّتها، ثم تحقق باستخدام `python3 --version`. نسخة python.org تتضمن `lzma` المطلوبة لـ CS2Kit. يحتاج CS2Kit أيضًا إلى Rosetta 2.
-- **Ubuntu/Debian:** نفّذ `sudo apt update` ثم `sudo apt install python3` وتحقق باستخدام `python3 --version`. استخدم مدير الحزم المناسب للتوزيعات الأخرى.
+- **Linux:** تحقق باستخدام `python3 --version`. يجب توفر Python 3.9+ مسبقًا؛ لا يثبّت المشغّل Python أو تبعيات النظام. توقف إن لم تكن المتطلبات موجودة.
 
 تحتاج إلى Python 3.9 أو أحدث؛ لا تحتاج قائمة PocketSteam إلى حزم pip.
 
@@ -31,12 +31,16 @@
 - [تنزيل ZIP المشروع](https://github.com/jabysa/PocketSteam/archive/refs/heads/main.zip)
 - [Steam لأنظمة Windows وmacOS وLinux](https://store.steampowered.com/about/)
 - [مثبّت Steam لويندوز](https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe)؛ مسار Windows هنا لا يشغّله
-- [حزمة Steam لنظام Linux](https://repo.steampowered.com/steam/steam_latest.deb)
+- [حزمة Steam لنظام Linux](https://repo.steampowered.com/steam/archive/stable/steam_latest.deb)
 - [مصدر CS2Kit الأصلي](https://github.com/piwas-21/cs2-apple-silicon) و[تفاصيل النسخة](../vendor/UPSTREAM.md)
 
 ## المصدر والترخيص
 
 يتضمن `vendor/cs2kit/` نسخة مصدر غير معدلة مع ترخيص GPL-3.0 الأصلي؛ ليست fork مستقلة على GitHub. لا يتضمن المشروع ملفات Steam أو Wine أو DXMT التنفيذية. يوزّع PocketSteam تحت [GPL-3.0](../LICENSE) مع الحفاظ على إشعارات المؤلفين.
+
+## دون مثبت بصلاحيات المسؤول
+
+إنشاء ملفات المستخدم متوقع. يحتفظ مسار Mac بإعداد CS2Kit في مجلد المستخدم، ويتطلب وجود Python وRosetta مسبقًا. لا يشغّل PocketSteam مثبتات مرتفعة الصلاحيات؛ لكن قد يطلب Steam أو إحدى الألعاب تثبيت خدمة أو متطلبات: **ألغِ الطلب** على الأجهزة المقيدة. قد لا تعمل اللعبة حينها. لا يتضمن المشروع تجاوزًا للصلاحيات.
 
 ## تفاصيل مشغّل Windows
 

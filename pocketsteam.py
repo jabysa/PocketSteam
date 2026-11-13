@@ -3,13 +3,11 @@ import argparse
 import os
 from pathlib import Path
 import platform
-import shutil
 import subprocess
 import sys
-import urllib.request
+import tarfile
 
 ROOT = Path(__file__).resolve().parent
-DEB_URL = "https://repo.steampowered.com/steam/steam_latest.deb"
 
 
 def host_os():
@@ -48,46 +46,11 @@ def run_macos():
     print("Setup complete. Open ~/Applications/CS2Kit.app, sign in, then install CS2.")
 
 
-def linux_supported():
-    if platform.machine().lower() not in ("x86_64", "amd64"):
-        return False
-    release = Path("/etc/os-release").read_text()
-    return any(line in ('ID=ubuntu', 'ID="ubuntu"', 'ID=debian', 'ID="debian"')
-               for line in release.splitlines()) and bool(shutil.which("apt"))
-
-
 def run_linux():
-    steam = shutil.which("steam")
-    if steam:
-        subprocess.run([steam], check=True)
-        return
-    if not linux_supported():
-        raise ValueError("Automatic Linux setup supports Ubuntu/Debian x86_64 only. "
-                         "Install Steam using your distribution, then run this again. "
-                         "See https://store.steampowered.com/about/")
-    print("Linux setup installs Valve's official .deb using apt (administrator\n"
-          "permission required). This route is NOT a portable folder installation.\n"
-          "Graphics drivers and 32-bit dependencies may need distribution setup.")
-    if not confirm("Download and install Steam using apt?"):
-        return
-    downloads = ROOT / "downloads"
-    downloads.mkdir(exist_ok=True)
-    dest = downloads / "steam_latest.deb"
-    if dest.is_symlink():
-        raise ValueError("Refusing a symbolic-link package destination")
-    with urllib.request.urlopen(DEB_URL, timeout=60) as response:
-        if not response.geturl().startswith("https://"):
-            raise ValueError("Refusing insecure download")
-        data = response.read(32_000_001)
-    if len(data) > 32_000_000 or not data.startswith(b"!<arch>\n"):
-        raise ValueError("Invalid or oversized Debian package")
-    dest.write_bytes(data)
-    # apt resolves dependencies; package source is Valve over HTTPS, not a signed repository.
-    command = ["apt", "install", str(dest)]
-    if os.geteuid() != 0:
-        command.insert(0, "sudo")
-    subprocess.run(command, check=True)
-    print("Steam installed. Run 'steam' as your normal user (not sudo).")
+    from linux_portable import run
+    print("Linux folder mode: no sudo, apt, or package installer.\n"
+          "Existing graphics drivers and 32-bit system libraries are required.")
+    run(ROOT)
 
 
 def main():
@@ -111,7 +74,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, ValueError, subprocess.SubprocessError, EOFError) as error:
+    except (OSError, ValueError, subprocess.SubprocessError, EOFError, tarfile.TarError) as error:
         print("Error:", error, file=sys.stderr)
         sys.exit(1)
     except KeyboardInterrupt:

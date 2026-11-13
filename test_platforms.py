@@ -29,23 +29,10 @@ class PlatformTests(unittest.TestCase):
             app.main()
             self.assertEqual(run.call_args.args[0][1], str(app.ROOT / 'steam_portable.py'))
 
-    def test_linux_does_not_install_without_consent(self):
-        with patch.object(app.shutil, 'which', return_value=None), \
-                patch.object(app, 'linux_supported', return_value=True), \
-                patch.object(app, 'confirm', return_value=False), \
-                patch('builtins.print'), patch.object(app.urllib.request, 'urlopen') as fetch, \
-                patch.object(app.subprocess, 'run') as run:
+    def test_linux_uses_folder_runtime(self):
+        with patch('linux_portable.run') as run, patch('builtins.print'):
             app.run_linux()
-            fetch.assert_not_called()
-            run.assert_not_called()
-
-    def test_installed_linux_steam_needs_no_download(self):
-        with patch.object(app.shutil, 'which', return_value='/usr/bin/steam'), \
-                patch.object(app.subprocess, 'run') as run, \
-                patch.object(app.urllib.request, 'urlopen') as fetch:
-            app.run_linux()
-            run.assert_called_once_with(['/usr/bin/steam'], check=True)
-            fetch.assert_not_called()
+            run.assert_called_once_with(app.ROOT)
 
     def test_intel_mac_is_rejected_before_setup(self):
         with patch.object(app.platform, 'machine', return_value='x86_64'), \

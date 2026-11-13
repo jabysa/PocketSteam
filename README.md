@@ -12,9 +12,9 @@ this is not a cross-platform emulator.
 
 - **Windows:** double-click `Start Steam.cmd`, select **1**. Uses the existing folder-based launcher.
 - **macOS:** open `Start PocketSteam.command`, select **2**. If execution permissions were lost in a ZIP, run `sh "Start PocketSteam.command"` in Terminal. Apple Silicon only. Choose `y` for setup/repair or `n` to launch an existing CS2Kit setup. Allow about 90 GB. Sign into Windows Steam and install CS2 after setup.
-- **Linux:** run `sh start.sh`, select **3**. An installed `steam` command is launched. Otherwise Ubuntu/Debian x86_64 users can confirm installation of Valve's official `.deb` through `sudo apt install`. Your password is entered in the terminal, never saved by PocketSteam. Other distributions must install Steam through their own supported package manager first.
+- **Linux:** run `sh start.sh`, select **3**. On x86_64 Linux, PocketSteam downloads Valve's package, verifies a pinned SHA-256, and extracts only the bootstrap/runtime into `LinuxSteam/`. It does **not** run `.deb` installers, package scripts, apt, sudo, or the distribution's Steam dependency installer.
 
-Linux setup is a **system installation**, not a portable folder. Older distributions, missing 32-bit libraries, or GPU drivers may prevent installation. See [Valve's Linux requirements](https://github.com/ValveSoftware/steam-for-linux/blob/master/README.md).
+Linux requires an existing 32-bit loader, compatible system libraries, GPU drivers, Bash, tar and xz. Missing prerequisites cause an error; PocketSteam does not install them. The launcher checks the loader/tools, while Steam checks additional runtime requirements. The pinned checksum stops setup if Valve changes the package until PocketSteam is updated. No Steam installation is added to the system package manager.
 macOS uses the bundled **CS2Kit** source snapshot, not native Mac Steam. It writes `~/CS2`, `~/.cs2kit`, and `~/Applications/CS2Kit.app`; it may move an existing CS2 install into its own library. **Competitive/VAC play remains unvalidated.**
 
 For direct selection: `python pocketsteam.py --os windows`, `python3 pocketsteam.py --os macos`, or `python3 pocketsteam.py --os linux`.
@@ -23,7 +23,7 @@ For direct selection: `python pocketsteam.py --os windows`, `python3 pocketsteam
 
 - **Windows:** [download Python](https://www.python.org/downloads/windows/). Run the official installer/install manager and follow its prompts. With a classic installer, enable **Add Python to PATH**. Reopen your terminal and check `py -3 --version` or `python --version`.
 - **macOS:** [download Python](https://www.python.org/downloads/macos/), open the official `.pkg`, follow the installer, then check `python3 --version` in Terminal. For CS2Kit, use a Python build with `lzma` support; the python.org installer includes it. Rosetta 2 must be installed for CS2Kit.
-- **Ubuntu/Debian:** run `sudo apt update`, then `sudo apt install python3`. Check `python3 --version`. On other distributions use their Python package.
+- **Linux:** check `python3 --version`. Python 3.9+ must already be available. PocketSteam does not install Python or system dependencies; if missing, stop and use a computer with the prerequisites available.
 
 Python 3.9+ is required. No `pip install` step is needed for the PocketSteam menu.
 
@@ -32,12 +32,16 @@ Python 3.9+ is required. No `pip install` step is needed for the PocketSteam men
 - [Download PocketSteam ZIP](https://github.com/jabysa/PocketSteam/archive/refs/heads/main.zip)
 - [Steam — choose Windows, macOS or Linux](https://store.steampowered.com/about/)
 - [Steam Windows installer](https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe) — optional alternative; PocketSteam's Windows path does not run it
-- [Steam Linux .deb](https://repo.steampowered.com/steam/steam_latest.deb)
+- [Steam Linux .deb](https://repo.steampowered.com/steam/archive/stable/steam_latest.deb)
 - [CS2Kit upstream](https://github.com/piwas-21/cs2-apple-silicon) and [snapshot attribution](vendor/UPSTREAM.md)
 
 ## Source and license
 
 `vendor/cs2kit/` contains an unmodified GPL-3.0 source snapshot, including its original license and documentation. No Wine, Steam, or DXMT binaries are bundled. This integration is not a separate GitHub fork. PocketSteam is distributed under [GPL-3.0](LICENSE); upstream notices remain intact.
+
+## No administrator installer
+
+Creating user files is expected. PocketSteam does not run elevated installers. The Mac route retains CS2Kit user-folder setup and requires Rosetta/Python already present. We cannot guarantee that Steam or a game will never display its own service/prerequisite permission request: **cancel it** on a restricted computer; the affected game may not work. No privilege bypass is included.
 
 ## Windows folder launcher details
 
